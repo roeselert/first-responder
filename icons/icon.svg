@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SanGuide">
+  <!-- Warm yellow field. Original mark: a rounded medical plus, deliberately not
+       the Geneva-cross emblem, to stay clear of protected Red Cross / DLRG marks. -->
+  <rect width="512" height="512" fill="#FFCE3A"/>
+  <g>
+    <rect x="102" y="200" width="308" height="112" rx="40" fill="#FFFFFF"/>
+    <rect x="200" y="102" width="112" height="308" rx="40" fill="#FFFFFF"/>
+    <rect x="110" y="208" width="292" height="96" rx="34" fill="#D72A2A"/>
+    <rect x="208" y="110" width="96" height="292" rx="34" fill="#D72A2A"/>
+  </g>
+</svg>
