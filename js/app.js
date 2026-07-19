@@ -38,6 +38,7 @@ let session = null;
 let cprEngine = null;
 let breathingTimer = null;
 let recoveryTimer = null;
+let monitorReprompt = null;
 let cprTicker = null;
 
 /* ---- Formatting ----------------------------------------------------------- */
@@ -66,6 +67,7 @@ async function goToStep(id, { announce = true } = {}) {
 function teardownTransient() {
   if (breathingTimer) { clearInterval(breathingTimer); breathingTimer = null; }
   if (recoveryTimer) { clearInterval(recoveryTimer); recoveryTimer = null; }
+  if (monitorReprompt) { clearInterval(monitorReprompt); monitorReprompt = null; }
   if (cprTicker) { clearInterval(cprTicker); cprTicker = null; }
 }
 
@@ -303,6 +305,7 @@ function startCprTicker() {
 }
 
 async function startCpr() {
+  audio.ensureRunning();          // resume the audio clock inside the gesture
   if (!cprEngine) {
     cprEngine = createCprEngine({
       onCycle: (n, ms) => { logEvent('CYCLE_COMPLETED', `Rotation ${n}, ${fmtMs(ms)}`); },
@@ -320,6 +323,7 @@ async function pauseCpr() {
 }
 
 async function resumeCpr() {
+  audio.ensureRunning();
   cprEngine.resume();
   await logEvent('CPR_RESUMED');
   renderCpr(getStep('cpr'));
@@ -333,30 +337,54 @@ async function signsOfLife() {
   await goToStep(o.next);
 }
 
-function renderRecovery(step, announce) {
-  clearWarning();
-  if (announce) audio.speak(step.reminderCue);
+/* Permanent red escalation present on every recovery/monitor screen (US-10/S1):
+ * breathing stopped → straight into CPR, no re-assessment, same journal. */
+function escalateButton() {
+  return el('button', { class: 'btn btn-xl btn-danger', type: 'button', onclick: escalateToCpr },
+    'Atmet nicht mehr');
+}
 
-  const nextEl = el('span', { class: 'metric-val' }, fmtClock(step.reminderSeconds));
-  let remaining = step.reminderSeconds;
-  recoveryTimer = setInterval(() => {
-    remaining -= 1;
-    if (remaining <= 0) { audio.speak(step.reminderCue); remaining = step.reminderSeconds; }
-    nextEl.textContent = fmtClock(remaining);
-  }, 1000);
+async function escalateToCpr() {
+  teardownTransient();
+  await logEvent('NO_NORMAL_BREATHING');
+  await goToStep('cpr'); // announce=true → auto startCpr, no reassessment
+}
+
+/* One recovery-position step: confirm or skip (US-8). */
+function renderRecoveryStep(step, announce) {
+  clearWarning();
+  if (announce && step.enterCue) audio.speak(step.enterCue);
+
+  const alreadyDone = step.alreadyLogged &&
+    session.events.some((e) => e.type === step.alreadyLogged);
+
+  let primary;
+  if (alreadyDone) {
+    // US-8/S3 — do not ask twice; show confirmed with time and a one-tap Weiter.
+    const at = session.events.filter((e) => e.type === step.alreadyLogged).slice(-1)[0];
+    const t = new Date(at.at).toLocaleTimeString('de-DE', { hour12: false });
+    primary = el('button', { class: 'btn btn-xl btn-secondary is-done', type: 'button',
+      onclick: () => goToStep(step.confirm.next) }, `${step.confirm.label} ✓ ${t} — Weiter`);
+  } else {
+    primary = el('button', { class: 'btn btn-xl btn-primary', type: 'button',
+      onclick: async () => { await logEvent(step.confirm.logs); await goToStep(step.confirm.next); } },
+      step.confirm.label);
+  }
+
+  const skip = el('button', { class: 'btn btn-secondary', type: 'button',
+    onclick: async () => { await logEvent('STEP_SKIPPED', step.skip.detail); await goToStep(step.skip.next); } },
+    'Übersprungen');
 
   screenEl().replaceChildren(
     el('section', { class: 'screen screen-step' },
       el('div', { class: 'step-body' },
         el('h1', { class: 'step-title' }, step.title),
         el('p', { class: 'step-hint' }, step.hint),
-        el('ol', { class: 'recovery-list' }, ...step.steps.map((s) => el('li', {}, s))),
-        el('div', { class: 'metric metric-inline' },
-          el('span', { class: 'metric-label' }, 'Nächste Kontrolle in'), nextEl),
       ),
       el('div', { class: 'actions' },
-        el('button', { class: 'btn btn-xl btn-danger', type: 'button', onclick: recoveryToCpr },
-          'Keine normale Atmung → HLW'),
+        primary,
+        skip,
+        escalateButton(),
         confirmButton('Einsatz beenden', 'Beenden bestätigen', endIncident, 'btn btn-ghost'),
       ),
       el('p', { class: 'source' }, step.source),
@@ -364,9 +392,81 @@ function renderRecovery(step, announce) {
   );
 }
 
-async function recoveryToCpr() {
-  await logEvent('NO_NORMAL_BREATHING');
-  await goToStep('alarm');
+/* Recurring 3-min monitoring loop (US-9). */
+function renderMonitor(step, announce) {
+  clearWarning();
+  if (announce) audio.speak(step.reminderCue);
+
+  const total = step.reminderSeconds;
+  let remaining = total;
+  let due = false;
+  let repromptCount = 0;
+
+  const countdown = el('span', { class: 'metric-val' }, fmtClock(total));
+  const body = el('div', { class: 'step-body' });
+  const actions = el('div', { class: 'actions' });
+
+  function paintCountdown() {
+    body.replaceChildren(
+      el('h1', { class: 'step-title' }, step.title),
+      el('p', { class: 'step-hint' }, step.hint),
+      el('div', { class: 'metric metric-inline' },
+        el('span', { class: 'metric-label' }, 'Nächste Kontrolle in'), countdown),
+    );
+    actions.replaceChildren(escalateButton(),
+      confirmButton('Einsatz beenden', 'Beenden bestätigen', endIncident, 'btn btn-ghost'));
+  }
+
+  function paintQuestion() {
+    body.replaceChildren(
+      el('h1', { class: 'step-title' }, step.question),
+      el('p', { class: 'step-hint danger' }, 'Schnappatmung zählt als keine normale Atmung.'),
+    );
+    actions.replaceChildren(
+      el('button', { class: 'btn btn-xl btn-primary', type: 'button', onclick: onUnchanged }, 'Unverändert'),
+      el('button', { class: 'btn btn-xl btn-danger', type: 'button', onclick: onWorsened }, 'Verschlechtert'),
+      escalateButton(),
+    );
+  }
+
+  async function onUnchanged() {
+    await logEvent('VITALS_CHECKED', 'unverändert');
+    due = false; repromptCount = 0; remaining = total;
+    if (monitorReprompt) { clearInterval(monitorReprompt); monitorReprompt = null; }
+    paintCountdown();
+  }
+
+  async function onWorsened() {
+    if (monitorReprompt) { clearInterval(monitorReprompt); monitorReprompt = null; }
+    await logEvent('VITALS_WORSENED');
+    await goToStep('breathing'); // US-10/S2 — re-run the timed check, then branch
+  }
+
+  function fireReminder() {
+    due = true;
+    repromptCount = 0;
+    audio.speak(step.reminderCue);
+    paintQuestion();
+    // US-9/S3 — unanswered: repeat every 30 s, louder once, logging nothing.
+    monitorReprompt = setInterval(() => {
+      if (!due) return;
+      repromptCount += 1;
+      audio.speak(step.reminderCue, { loud: repromptCount >= 1 });
+    }, 30000);
+  }
+
+  recoveryTimer = setInterval(() => {
+    if (due) return;
+    remaining -= 1;
+    countdown.textContent = fmtClock(Math.max(0, remaining));
+    if (remaining <= 0) fireReminder();
+  }, 1000);
+
+  paintCountdown();
+  screenEl().replaceChildren(
+    el('section', { class: 'screen screen-step' }, body, actions,
+      el('p', { class: 'source' }, step.source)),
+  );
 }
 
 async function renderEnded() {
@@ -417,7 +517,8 @@ function render({ announce = true } = {}) {
       if (announce && (!cprEngine || !cprEngine.isRunning())) startCpr();
       else renderCpr(step);
       break;
-    case 'recovery': renderRecovery(step, announce); break;
+    case 'recovery-step': renderRecoveryStep(step, announce); break;
+    case 'monitor': renderMonitor(step, announce); break;
     default: renderStart();
   }
 }
