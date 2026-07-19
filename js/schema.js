@@ -30,12 +30,14 @@ export const CLICK_INTERVAL_MS = 60000 / CONFIG.COMPRESSION_RATE_BPM; // ≈ 545
 /* Each key also maps to a distinct fallback tone in audio.js (R1 mitigation). */
 
 export const CUES = Object.freeze({
-  CALL_HELP:   'Um Hilfe rufen',
-  CPR_INTRO:   '30 Kompressionen, 5 bis 6 Zentimeter tief',
-  VENTILATE:   '2 Beatmungen',
-  RESUME:      'Weiter',
-  ROTATE:      'Helferwechsel',
-  CHECK_LIFE:  'Lebensfunktionen prüfen',
+  CALL_HELP:    'Um Hilfe rufen',
+  CPR_INTRO:    '30 Kompressionen, 5 bis 6 Zentimeter tief',
+  VENTILATE:    '2 Beatmungen',
+  RESUME:       'Weiter',
+  ROTATE:       'Helferwechsel',
+  RECOVERY:     'Stabile Seitenlage. Lebensfunktionen überwachen.',
+  KEEP_WARM:    'Wärmeerhalt. Decke oder Rettungsdecke.',
+  CHECK_VITALS: 'Lebensfunktionen prüfen. Atmung? Bewusstsein?',
 });
 
 /* ---- Journal labels (German) for the handover text (US-7/S3). ------------- */
@@ -54,6 +56,10 @@ export const EVENT_LABELS = Object.freeze({
   CYCLE_COMPLETED:      'Zyklus abgeschlossen – Helferwechsel',
   SIGNS_OF_LIFE:        'Lebenszeichen',
   RECOVERY_POSITION:    'Stabile Seitenlage',
+  WARMTH_MAINTAINED:    'Wärmeerhalt',
+  STEP_SKIPPED:         'Schritt übersprungen',
+  VITALS_CHECKED:       'Lebensfunktionen geprüft',
+  VITALS_WORSENED:      'Zustand verschlechtert',
   SESSION_ENDED:        'Einsatz beendet',
 });
 
@@ -62,8 +68,11 @@ export const EVENT_LABELS = Object.freeze({
  *   'instruction' — title + hint + navigation options (each may log one event)
  *   'breathing'   — bounded timed check with two answers (US-3)
  *   'alarm'       — in-place log buttons + always-present "HLW starten" (US-4)
- *   'cpr'         — audio-paced CPR engine screen (US-5/US-6)
- *   'recovery'    — recovery-position path with a recurring reminder (US-3/S2)
+ *   'cpr'          — audio-paced CPR engine screen (US-5/US-6)
+ *   'recovery-step'— one recovery-position step: confirm or skip (US-8)
+ *   'monitor'      — recurring 3-min vital-sign check loop (US-9)
+ * Every recovery-step and monitor screen also carries a permanent red
+ * "Atmet nicht mehr" escalation into CPR (US-10).
  * option: { label, logs?, next }  — logs is persisted BEFORE navigation (US-7/S1)
  */
 
@@ -113,7 +122,7 @@ export const STEPS = Object.freeze({
     hint: 'Schnappatmung und Krämpfe zählen als KEINE normale Atmung.',
     timerSeconds: CONFIG.BREATHING_CHECK_SECONDS,
     options: [
-      { label: 'Atmet normal', logs: 'BREATHING_NORMAL', next: 'recovery' },
+      { label: 'Atmet normal', logs: 'BREATHING_NORMAL', next: 'recovery_position' },
       { label: 'Atmet nicht normal (auch Schnappatmung)',
         logs: 'NO_NORMAL_BREATHING', next: 'alarm' },
     ],
@@ -141,24 +150,54 @@ export const STEPS = Object.freeze({
     title: 'HLW läuft – 30:2',
     source: 'San A 2021 – Herz-Lungen-Wiederbelebung (HLW)',
     // Options rendered as large targets during pacing.
-    signsOfLife: { label: 'Lebenszeichen', logs: 'SIGNS_OF_LIFE', next: 'recovery' },
+    signsOfLife: { label: 'Lebenszeichen', logs: 'SIGNS_OF_LIFE', next: 'recovery_position' },
   },
 
-  recovery: {
-    id: 'recovery',
-    kind: 'recovery',
+  /* ---- Recovery-position branch (US-8) — one instruction per screen -------- */
+  recovery_position: {
+    id: 'recovery_position',
+    kind: 'recovery-step',
     title: 'Stabile Seitenlage',
-    hint: 'Atmung fortlaufend kontrollieren.',
-    // Entering this path records the position; recurring reminder every 3 min.
-    onEnter: 'RECOVERY_POSITION',
+    hint: 'Atemwege freihalten – auf die Seite drehen.',
+    enterCue: 'RECOVERY',
+    confirm: { label: 'Seitenlage hergestellt', logs: 'RECOVERY_POSITION', next: 'recovery_call' },
+    skip: { detail: 'Seitenlage', next: 'recovery_call' },
+    source: 'San A 2021 – Auffinden eines Notfallpatienten II',
+  },
+
+  recovery_call: {
+    id: 'recovery_call',
+    kind: 'recovery-step',
+    title: 'Notruf 112 – AED holen lassen',
+    hint: 'Falls noch nicht geschehen: Notruf absetzen lassen.',
+    // If EMERGENCY_CALL_PLACED is already in the journal, the controller shows a
+    // confirmed row with its time and a one-tap "Weiter" (US-8/S3).
+    alreadyLogged: 'EMERGENCY_CALL_PLACED',
+    confirm: { label: 'Notruf abgesetzt', logs: 'EMERGENCY_CALL_PLACED', next: 'recovery_warmth' },
+    skip: { detail: 'Notruf', next: 'recovery_warmth' },
+    source: 'San A 2021 – Auffinden eines Notfallpatienten II',
+  },
+
+  recovery_warmth: {
+    id: 'recovery_warmth',
+    kind: 'recovery-step',
+    title: 'Wärmeerhalt',
+    hint: 'Decke oder Rettungsdecke – Auskühlung vermeiden.',
+    enterCue: 'KEEP_WARM',
+    confirm: { label: 'Wärmeerhalt hergestellt', logs: 'WARMTH_MAINTAINED', next: 'monitor' },
+    skip: { detail: 'Wärmeerhalt', next: 'monitor' },
+    source: 'San A 2021 – Auffinden eines Notfallpatienten II',
+  },
+
+  /* ---- Monitoring loop (US-9) --------------------------------------------- */
+  monitor: {
+    id: 'monitor',
+    kind: 'monitor',
+    title: 'Überwachen',
+    hint: 'Lebensfunktionen alle 3 Minuten prüfen.',
+    question: 'Atmung? Bewusstsein?',
     reminderSeconds: CONFIG.RECOVERY_REMINDER_SECONDS,
-    reminderCue: 'CHECK_LIFE',
-    steps: [
-      'In stabile Seitenlage bringen',
-      'Notruf 112 sicherstellen',
-      'Wärmeerhalt – zudecken',
-      'Atmung & Lebensfunktionen alle 3 Minuten prüfen',
-    ],
+    reminderCue: 'CHECK_VITALS',
     source: 'San A 2021 – Auffinden eines Notfallpatienten II',
   },
 });

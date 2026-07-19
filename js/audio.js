@@ -23,24 +23,28 @@ const hasSpeech = typeof globalThis.speechSynthesis !== 'undefined';
 
 /* Distinct fallback tone per cue: sequences of { freq(Hz), dur(s) }. */
 const TONE_VOCAB = {
-  CALL_HELP:  [{ freq: 880, dur: 0.12 }, { freq: 880, dur: 0.12 }],
-  CPR_INTRO:  [{ freq: 660, dur: 0.14 }, { freq: 990, dur: 0.20 }],
-  VENTILATE:  [{ freq: 620, dur: 0.16 }, { freq: 620, dur: 0.16 }],
-  RESUME:     [{ freq: 520, dur: 0.10 }, { freq: 780, dur: 0.16 }],
-  ROTATE:     [{ freq: 700, dur: 0.14 }, { freq: 560, dur: 0.14 }, { freq: 440, dur: 0.20 }],
-  CHECK_LIFE: [{ freq: 500, dur: 0.30 }],
-  END_TONE:   [{ freq: 990, dur: 0.30 }],
+  CALL_HELP:   [{ freq: 880, dur: 0.12 }, { freq: 880, dur: 0.12 }],
+  CPR_INTRO:   [{ freq: 660, dur: 0.14 }, { freq: 990, dur: 0.20 }],
+  VENTILATE:   [{ freq: 620, dur: 0.16 }, { freq: 620, dur: 0.16 }],
+  RESUME:      [{ freq: 520, dur: 0.10 }, { freq: 780, dur: 0.16 }],
+  ROTATE:      [{ freq: 700, dur: 0.14 }, { freq: 560, dur: 0.14 }, { freq: 440, dur: 0.20 }],
+  CHECK_VITALS:[{ freq: 500, dur: 0.22 }, { freq: 500, dur: 0.22 }],
+  KEEP_WARM:   [{ freq: 590, dur: 0.18 }],
+  RECOVERY:    [{ freq: 700, dur: 0.14 }, { freq: 590, dur: 0.20 }],
+  END_TONE:    [{ freq: 990, dur: 0.30 }],
 };
 
 /* Vibration pattern per cue (ms on/off), used everywhere Vibration is supported. */
 const VIBRATE_VOCAB = {
-  CALL_HELP:  [120, 80, 120],
-  CPR_INTRO:  [200],
-  VENTILATE:  [150, 100, 150],
-  RESUME:     [200],
-  ROTATE:     [120, 80, 120, 80, 120],
-  CHECK_LIFE: [300],
-  CLICK:      [20],
+  CALL_HELP:   [120, 80, 120],
+  CPR_INTRO:   [200],
+  VENTILATE:   [150, 100, 150],
+  RESUME:      [200],
+  ROTATE:      [120, 80, 120, 80, 120],
+  CHECK_VITALS:[250, 120, 250],
+  KEEP_WARM:   [200],
+  RECOVERY:    [150, 100, 150],
+  CLICK:       [20],
 };
 
 function ensureCtx() {
@@ -85,8 +89,7 @@ export function init() {
 
 /* Must run inside a user gesture (start button): unlocks audio + speech on iOS. */
 export function unlock() {
-  const c = ensureCtx();
-  if (c && c.state === 'suspended') c.resume().catch(() => {});
+  ensureRunning();
   if (hasSpeech) {
     try {
       const u = new SpeechSynthesisUtterance(' ');
@@ -110,24 +113,42 @@ export function audioAvailable() {
   return !!ensureCtx();
 }
 
-/* Schedule one metronome click at Web Audio time `time` (seconds). */
+/* Resume the AudioContext (idempotent). MUST be called inside a user gesture on
+ * the CPR-start path: a suspended context has a frozen currentTime, which stalls
+ * the metronome scheduler and produces no beep even while speech still plays. */
+export function ensureRunning() {
+  const c = ensureCtx();
+  if (!c) return 'unavailable';
+  if (c.state === 'suspended') c.resume().catch(() => {});
+  return c.state;
+}
+
+export function contextState() {
+  return ctx ? ctx.state : 'none';
+}
+
+/* Schedule one metronome beep at Web Audio time `time` (seconds). ~70 ms, loud,
+ * with an accented (higher-pitched) downbeat for the first of the 30. */
 export function scheduleClick(time, strong = false) {
   const c = ensureCtx();
   if (!c) return;
   const osc = c.createOscillator();
   const gain = c.createGain();
   osc.type = 'square';
-  osc.frequency.value = strong ? 1500 : 1000;
+  osc.frequency.value = strong ? 1400 : 1000;
   const t = Math.max(time, c.currentTime);
+  const peak = strong ? 0.95 : 0.8;
+  const dur = 0.07;
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.6, t + 0.002);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+  gain.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+  gain.gain.setValueAtTime(peak, t + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   osc.connect(gain).connect(master);
   osc.start(t);
-  osc.stop(t + 0.05);
+  osc.stop(t + dur + 0.02);
 }
 
-function playPattern(steps, startAt) {
+function playPattern(steps, startAt, peak = 0.5) {
   const c = ensureCtx();
   if (!c) return;
   let t = Math.max(startAt || c.currentTime, c.currentTime) + 0.01;
@@ -137,7 +158,7 @@ function playPattern(steps, startAt) {
     osc.type = 'sine';
     osc.frequency.value = step.freq;
     gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + step.dur);
     osc.connect(gain).connect(master);
     osc.start(t);
@@ -154,8 +175,8 @@ export function vibrate(pattern) {
 
 /* Speak a cue by key (see CUES). Uses German speech when available, otherwise a
  * distinct tone. Always vibrates the matching pattern (US-5/S4). */
-export function speak(cueKey, { atAudioTime } = {}) {
-  vibrate(VIBRATE_VOCAB[cueKey] || VIBRATE_VOCAB.CLICK);
+export function speak(cueKey, { atAudioTime, loud = false } = {}) {
+  vibrate(loud ? [400, 150, 400] : (VIBRATE_VOCAB[cueKey] || VIBRATE_VOCAB.CLICK));
   const text = CUES[cueKey];
   if (voice && hasSpeech && text) {
     try {
@@ -168,12 +189,12 @@ export function speak(cueKey, { atAudioTime } = {}) {
       return;
     } catch (_) { /* fall through to tone */ }
   }
-  playPattern(TONE_VOCAB[cueKey] || TONE_VOCAB.CHECK_LIFE, atAudioTime);
+  playPattern(TONE_VOCAB[cueKey] || TONE_VOCAB.CHECK_VITALS, atAudioTime, loud ? 0.9 : 0.5);
 }
 
 /* Non-verbal end tone for the breathing countdown (US-3/S1). */
 export function endTone() {
-  vibrate(VIBRATE_VOCAB.CHECK_LIFE);
+  vibrate(VIBRATE_VOCAB.CHECK_VITALS);
   playPattern(TONE_VOCAB.END_TONE);
 }
 

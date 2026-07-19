@@ -114,6 +114,7 @@ export function createCprEngine({ onCycle } = {}) {
 
   return {
     start() {
+      audio.ensureRunning();   // clock must be running or no beep sounds (Q4)
       running = true;
       phase = 'compressions';
       compressionCount = 0;
@@ -136,6 +137,7 @@ export function createCprEngine({ onCycle } = {}) {
 
     resume() {
       if (running) return;
+      audio.ensureRunning();
       const pauseDur = Date.now() - pauseStartWall;
       handsOffTotalMs += pauseDur;
       blockStartWall += pauseDur;      // elapsed measures hands-on time only

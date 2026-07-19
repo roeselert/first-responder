@@ -24,9 +24,12 @@ vision, quality goals and context.
 One-tap start guides the responder through scene safety, responsiveness, a bounded
 10 s breathing check, the emergency call / AED prompt, and audio-paced CPR at a
 fixed 110/min in a 30:2 rhythm with a hands-free ventilation window and a
-helper-rotation prompt every five cycles. Every confirmed action is written to a
-local, crash-resilient journal (IndexedDB) with absolute timestamps and shared as
-plain text for EMS handover. The guidance content lives as reviewable data in
+helper-rotation prompt every five cycles. The **breathing-normal branch** leads
+through the recovery position, emergency call and warmth (each skippable) into a
+recurring 3-minute monitoring loop; a permanent **"Atmet nicht mehr"** action
+escalates straight back into CPR without repeating the assessment. Every confirmed
+action is written to a local, crash-resilient journal (IndexedDB) with absolute
+timestamps and shared as plain text for EMS handover. The guidance content lives as reviewable data in
 `js/schema.js`; the state machine, persistence, audio and journal are separate
 ES modules (`js/cpr.js`, `js/store.js`, `js/audio.js`, `js/journal.js`,
 `js/wakelock.js`). Spoken cues use `speechSynthesis` and fall back to distinct
