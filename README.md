@@ -32,7 +32,7 @@ python3 -m http.server 8000
 
 Pure static assets served from the repository root — hosted on **GitHub Pages**.
 
-Deployment is automated by [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml),
+Deployment is automated by [`.github/workflows/static.yml`](./.github/workflows/static.yml),
 which publishes on every push to `main`. To enable it once: in the repository,
 go to **Settings → Pages → Build and deployment** and set the **Source** to
 **GitHub Actions**.
