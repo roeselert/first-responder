@@ -4,13 +4,19 @@
  * guidance path makes a runtime network request. Bump CACHE_VERSION whenever
  * a shell asset changes to invalidate the old cache. */
 
-const CACHE_VERSION = 'sanguide-shell-v1';
+const CACHE_VERSION = 'sanguide-shell-v2';
 
 const SHELL_ASSETS = [
   './',
   './index.html',
   './css/styles.css',
   './js/app.js',
+  './js/schema.js',
+  './js/store.js',
+  './js/audio.js',
+  './js/cpr.js',
+  './js/wakelock.js',
+  './js/journal.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/favicon-32.png',
