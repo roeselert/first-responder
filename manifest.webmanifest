@@ -2,7 +2,7 @@
   "name": "SanGuide — First Responder Guide",
   "short_name": "SanGuide",
   "description": "Offline-first guidance for trained first responders.",
-  "id": "/",
+  "id": "./",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

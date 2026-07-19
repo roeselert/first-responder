@@ -1,14 +1,3 @@
----
-title: SanGuide
-emoji: ➕
-colorFrom: yellow
-colorTo: red
-sdk: static
-app_file: index.html
-pinned: false
-license: mit
----
-
 # SanGuide — First Responder Guide
 
 Offline-first PWA that guides a **trained first responder** through emergency
@@ -41,8 +30,17 @@ python3 -m http.server 8000
 
 ## Deploy
 
-Pure static assets, served from the repository root — compatible with Hugging
-Face Spaces (`sdk: static`), GitHub Pages, or any static host.
+Pure static assets served from the repository root — hosted on **GitHub Pages**.
+
+Deployment is automated by [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml),
+which publishes on every push to `main`. To enable it once: in the repository,
+go to **Settings → Pages → Build and deployment** and set the **Source** to
+**GitHub Actions**.
+
+The site is served from a project subpath (`https://<owner>.github.io/<repo>/`).
+All asset, manifest and service-worker references are relative (`./…`) and a
+`.nojekyll` file disables Jekyll processing, so the shell works unchanged under
+that subpath.
 
 ## Regenerating icons
 
