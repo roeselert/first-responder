@@ -4,19 +4,34 @@ Offline-first PWA that guides a **trained first responder** through emergency
 treatment schemas. See [`CLAUDE.md`](./CLAUDE.md) for the architecture spine,
 vision, quality goals and context.
 
-> **Status: bootstrap (Phase 1).** This iteration ships only the installable app
-> shell and a "hello world" screen. No guidance logic — no metronome, journal or
-> schemas yet.
+> **Status: F1 implemented (Phase 3).** The full "unconscious patient →
+> assessment → CPR" flow works offline: guided assessment, audio-paced 30:2 CPR,
+> a timestamped journal and share. UI and cues are in German.
 
 ## What's in this iteration
 
-- Static, no-build **PWA shell**: `index.html`, `css/`, `js/`.
+- Static, no-build **PWA shell**: `index.html`, `css/`, `js/` (ES modules, no
+  toolchain).
 - **Offline-first** service worker (`service-worker.js`) that precaches the shell
   so it opens with zero runtime network calls (quality goal Q1).
 - **Web app manifest** (`manifest.webmanifest`) for home-screen install.
 - **App icon**: a rounded red medical plus on a warm yellow field
   (`icons/`). Original mark — deliberately *not* the Geneva-cross emblem — to
   stay clear of protected Red Cross / DLRG trademarks.
+
+### F1 — unconscious patient: assessment → CPR
+
+One-tap start guides the responder through scene safety, responsiveness, a bounded
+10 s breathing check, the emergency call / AED prompt, and audio-paced CPR at a
+fixed 110/min in a 30:2 rhythm with a hands-free ventilation window and a
+helper-rotation prompt every five cycles. Every confirmed action is written to a
+local, crash-resilient journal (IndexedDB) with absolute timestamps and shared as
+plain text for EMS handover. The guidance content lives as reviewable data in
+`js/schema.js`; the state machine, persistence, audio and journal are separate
+ES modules (`js/cpr.js`, `js/store.js`, `js/audio.js`, `js/journal.js`,
+`js/wakelock.js`). Spoken cues use `speechSynthesis` and fall back to distinct
+synthesized tones when no offline German voice is available (no runtime network,
+Q1/Q6).
 
 ## Run locally
 

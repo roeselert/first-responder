@@ -1,7 +1,7 @@
 /* SanGuide — First Responder Guide
    Scandinavian, light, calm. Rescue yellow/red used sparingly as accents.
-   Colours are an original palette inspired by rescue-service livery; they do
-   not reproduce any protected trademark. */
+   Sized for glanceable, one-handed use under stress (Q2): large targets, high
+   contrast, primary action within thumb reach. */
 
 :root {
   /* Surfaces — warm off-white, plenty of light */
@@ -20,9 +20,10 @@
   --c-red-ink: #b21f1f;
   --c-yellow: #ffce3a;
   --c-yellow-soft: #fff3cf;
+  --c-green: #3fae5a;
 
-  /* Type scale — readable at arm's length */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Stress-usability tokens (Q2): generous touch targets, ≥ 12 mm ≈ 48px */
   --tap-min: 56px;
@@ -36,11 +37,7 @@
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
+html, body { margin: 0; padding: 0; height: 100%; }
 
 body {
   font-family: var(--font);
@@ -49,12 +46,9 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   line-height: 1.4;
-  /* respect notches / home indicators */
   padding:
-    env(safe-area-inset-top)
-    env(safe-area-inset-right)
-    env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+    env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .app {
@@ -72,138 +66,143 @@ body {
   gap: 12px;
   padding: var(--space) var(--space-lg);
 }
-
 .brand-mark {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border-radius: 11px;
-  box-shadow: var(--shadow);
-  display: block;
+  width: 40px; height: 40px; flex: 0 0 auto;
+  border-radius: 11px; box-shadow: var(--shadow); display: block;
 }
-
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-name { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
 .brand-tag { font-size: 0.78rem; color: var(--c-ink-faint); font-weight: 500; }
 
-/* ---- Main hero ---- */
-.hero {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-lg);
-  padding: var(--space-lg);
+/* ---- Persistent warning (R1 audio/voice hint) ---- */
+.warning {
+  margin: 0 var(--space-lg);
+  padding: 10px 14px;
+  background: var(--c-yellow-soft);
+  border: 1px solid #f2e2ac;
+  border-radius: var(--radius);
+  color: var(--c-red-ink);
+  font-weight: 600;
+  font-size: 0.9rem;
   text-align: center;
 }
 
-.hero-eyebrow {
-  display: inline-block;
-  align-self: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--c-red-ink);
-  background: var(--c-yellow-soft);
-  border: 1px solid #f2e2ac;
-  padding: 6px 14px;
-  border-radius: 999px;
-}
-
-.hero h1 {
-  margin: 0;
-  font-size: clamp(2rem, 8vw, 2.75rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-
-.hero p {
-  margin: 0 auto;
-  max-width: 34ch;
-  color: var(--c-ink-soft);
-  font-size: 1.05rem;
-}
-
-/* Accent underline nod to rescue yellow */
-.accent-rule {
-  width: 64px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--c-yellow);
-  align-self: center;
-}
-
-/* ---- Primary action (placeholder only — no business logic yet) ---- */
-.actions {
+/* ---- Screen scaffold ---- */
+.screen-host { flex: 1 1 auto; display: flex; }
+.screen {
+  flex: 1 1 auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 0 var(--space-lg) var(--space-lg);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
 }
+.screen-start { justify-content: center; text-align: center; }
+
+.lead { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.eyebrow {
+  align-self: center;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--c-red-ink); background: var(--c-yellow-soft);
+  border: 1px solid #f2e2ac; padding: 6px 14px; border-radius: 999px;
+}
+.screen h1 {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 800; letter-spacing: -0.02em; line-height: 1.05;
+}
+.sub, .fineprint { color: var(--c-ink-soft); margin: 0 auto; max-width: 34ch; }
+.fineprint { font-size: 0.85rem; color: var(--c-ink-faint); }
+
+/* ---- Step screens ---- */
+.screen-step .step-body { display: flex; flex-direction: column; gap: var(--space); align-items: center; text-align: center; }
+.step-title { font-size: clamp(1.6rem, 6.5vw, 2.2rem); }
+.step-hint { margin: 0; color: var(--c-ink-soft); max-width: 40ch; font-size: 1.05rem; }
+.step-hint.danger {
+  color: var(--c-red-ink); font-weight: 700;
+  background: var(--c-yellow-soft); border: 1px solid #f2e2ac;
+  padding: 10px 14px; border-radius: var(--radius);
+}
+.reprompt { color: var(--c-red-ink); font-weight: 700; }
+.source { margin: 0; text-align: center; color: var(--c-ink-faint); font-size: 0.72rem; }
+
+/* ---- Actions: primary sits near the bottom for thumb reach ---- */
+.actions { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
 
 .btn {
   font-family: inherit;
   min-height: var(--tap-min);
   border-radius: var(--radius);
   border: 1px solid transparent;
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 12px 20px;
+  font-size: 1.1rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 12px 20px;
   transition: transform 0.06s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 3px solid var(--c-red); outline-offset: 3px; }
+.btn-xl { min-height: 72px; font-size: 1.25rem; border-radius: var(--radius-lg); }
 
-.btn-primary {
-  background: var(--c-red);
-  color: #fff;
-  box-shadow: var(--shadow);
-}
+.btn-primary { background: var(--c-red); color: #fff; box-shadow: var(--shadow); }
 .btn-primary:hover { background: var(--c-red-ink); }
 
-.btn-secondary {
-  background: var(--c-surface);
-  color: var(--c-ink);
-  border-color: var(--c-border);
-}
+.btn-danger { background: var(--c-red-ink); color: #fff; box-shadow: var(--shadow); }
+
+.btn-warn { background: var(--c-yellow); color: var(--c-ink); box-shadow: var(--shadow); }
+
+.btn-secondary { background: var(--c-surface); color: var(--c-ink); border-color: var(--c-border); }
 .btn-secondary:hover { background: var(--c-surface-sunken); }
 
+.btn-ghost { background: transparent; color: var(--c-ink-soft); border-color: var(--c-border); }
+.btn-ghost.is-armed { color: var(--c-red-ink); background: var(--c-yellow-soft); border-color: var(--c-red); }
+
+/* ---- Breathing countdown ring (US-3) ---- */
+.ring-wrap { position: relative; width: 168px; height: 168px; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: var(--c-surface-sunken); stroke-width: 10; }
+.ring-progress { fill: none; stroke: var(--c-red); stroke-width: 10; stroke-linecap: round; }
+.ring-num {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 3.2rem; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+/* ---- CPR status ---- */
+.screen-cpr { text-align: center; }
+.cpr-status {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg); padding: 18px 12px; box-shadow: var(--shadow);
+}
+.cpr-status.is-paused { background: var(--c-yellow-soft); border-color: #f2e2ac; }
+.metric { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.metric-inline { flex-direction: row; justify-content: center; gap: 10px; }
+.metric-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-ink-faint); }
+.metric-val { font-size: 1.9rem; font-weight: 800; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+.cpr-cadence { margin: 0; font-weight: 700; color: var(--c-ink-soft); letter-spacing: 0.02em; }
+
+/* ---- Alarm in-place confirmations ---- */
+.confirm-row { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.confirm-row .btn { min-height: var(--tap-min); }
+.confirm-row .is-done { background: #e7f4ea; border-color: #bfe2c8; color: #1f6b34; font-weight: 700; }
+
+/* ---- Recovery list ---- */
+.recovery-list { text-align: left; margin: 0; padding-left: 1.3em; color: var(--c-ink-soft); font-size: 1.02rem; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---- Journal preview / share ---- */
+.journal-preview {
+  white-space: pre-wrap; word-break: break-word;
+  background: var(--c-surface-sunken); border: 1px solid var(--c-border);
+  border-radius: var(--radius); padding: 14px; font-family: var(--mono);
+  font-size: 0.82rem; text-align: left; max-height: 40vh; overflow: auto; margin: 0;
+}
+.share-feedback { margin: 0; color: var(--c-ink-soft); font-size: 0.9rem; }
+
 /* ---- Footer / status ---- */
-.footer {
-  padding: var(--space) var(--space-lg) var(--space-lg);
-  text-align: center;
-  color: var(--c-ink-faint);
-  font-size: 0.8rem;
-}
-
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.status-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--c-ink-faint);
-  flex: 0 0 auto;
-}
-.status[data-ready="true"] .status-dot { background: #3fae5a; }
-
-.disclaimer {
-  margin-top: 10px;
-  max-width: 42ch;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.35;
-}
+.footer { padding: var(--space) var(--space-lg) var(--space-lg); text-align: center; color: var(--c-ink-faint); font-size: 0.8rem; }
+.status { display: inline-flex; align-items: center; gap: 8px; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c-ink-faint); flex: 0 0 auto; }
+.status[data-ready="true"] .status-dot { background: var(--c-green); }
+.disclaimer { margin-top: 10px; max-width: 42ch; margin-left: auto; margin-right: auto; line-height: 1.35; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>SanGuide — First Responder Guide</title>
-  <meta name="description" content="Offline-first guidance for trained first responders. Bootstrap build." />
+  <title>SanGuide — Ersthelfer-Leitfaden</title>
+  <meta name="description" content="Offline-Leitfaden für ausgebildete Ersthelfer: HLW-Taktung und Einsatzprotokoll." />
 
   <!-- PWA -->
   <meta name="theme-color" content="#f7f6f2" />
@@ -26,42 +26,28 @@
       <img class="brand-mark" src="./icons/icon.svg" alt="" width="40" height="40" />
       <span class="brand-text">
         <span class="brand-name">SanGuide</span>
-        <span class="brand-tag">First Responder Guide</span>
+        <span class="brand-tag">Ersthelfer-Leitfaden</span>
       </span>
     </header>
 
-    <section class="hero">
-      <span class="hero-eyebrow">Bootstrap · Phase 1</span>
-      <h1>Hello, responder.</h1>
-      <span class="accent-rule" aria-hidden="true"></span>
-      <p>
-        The app shell is up and running. Guidance schemas, audio pacing and the
-        journal arrive in later iterations.
-      </p>
-    </section>
+    <!-- Persistent audio/voice hint (shown during CPR, R1) -->
+    <p class="warning" id="warning" role="status" hidden></p>
 
-    <div class="actions">
-      <!-- Placeholder only — no guidance logic wired up in this iteration. -->
-      <button class="btn btn-primary" type="button" disabled aria-disabled="true">
-        Start CPR guidance — coming soon
-      </button>
-      <button class="btn btn-secondary" type="button" disabled aria-disabled="true">
-        Other schemas — coming soon
-      </button>
-    </div>
+    <!-- Guidance render target — screens are built by js/app.js -->
+    <div id="screen" class="screen-host"></div>
 
     <footer class="footer">
       <span class="status" id="offline-status" data-ready="false">
         <span class="status-dot" aria-hidden="true"></span>
-        <span id="offline-status-text">Preparing offline mode…</span>
+        <span id="offline-status-text">Offline-Modus wird vorbereitet…</span>
       </span>
       <p class="disclaimer">
-        Informational guidance for trained responders. Does not replace training
-        or the emergency call.
+        Informationshilfe für ausgebildete Ersthelfer. Ersetzt weder die
+        Ausbildung noch den Notruf.
       </p>
     </footer>
   </main>
 
-  <script src="./js/app.js"></script>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
