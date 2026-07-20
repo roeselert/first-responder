@@ -14,6 +14,15 @@ function hhmmss(ts) {
   return new Date(ts).toLocaleTimeString('de-DE', { hour12: false });
 }
 
+/* Absolute date + time, e.g. "19.07.2026, 21:58:01" — anchors the protocol to a
+ * day so the running per-event clock below is unambiguous (US-7/S3). */
+function fullDateTime(ts) {
+  return new Date(ts).toLocaleString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+}
+
 /* Hands-on CPR duration reconstructed from timestamps (paused spans removed). */
 export function computeCprDurationMs(events) {
   let total = 0;
@@ -52,7 +61,8 @@ function formatDuration(ms) {
 export function renderJournalText(session) {
   const lines = [];
   lines.push('SanGuide — Einsatzprotokoll');
-  lines.push('Einsatzbeginn: ' + hhmmss(session.startedAt));
+  const firstAt = session.events.length ? session.events[0].at : session.startedAt;
+  lines.push('Einsatzbeginn: ' + fullDateTime(firstAt));
   if (session.endedAt) lines.push('Einsatzende:   ' + hhmmss(session.endedAt));
   lines.push('HLW-Dauer (Hands-on): ' + formatDuration(computeCprDurationMs(session.events)));
   lines.push('');
