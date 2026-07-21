@@ -6,7 +6,7 @@
  * UI advances (US-7/S1); on launch a recent unclosed session is resumed (US-1/S2).
  */
 
-import { getStep, FIRST_STEP_ID } from './schema.js';
+import { getStep, FIRST_STEP_ID, ESCALATE_TO_CPR } from './schema.js';
 import * as store from './store.js';
 import * as audio from './audio.js';
 import * as wakelock from './wakelock.js';
@@ -149,6 +149,7 @@ function renderInstruction(step, announce) {
       el('div', { class: 'step-body' },
         el('h1', { class: 'step-title' }, step.title),
         step.hint ? el('p', { class: 'step-hint' }, step.hint) : null,
+        step.dangerHint ? el('p', { class: 'step-hint danger' }, step.dangerHint) : null,
       ),
       el('div', { class: 'actions' },
         ...opts.map((opt, i) => el('button', {
@@ -156,6 +157,7 @@ function renderInstruction(step, announce) {
           type: 'button',
           onclick: () => chooseOption(opt),
         }, opt.label)),
+        step.escalate ? escalateButton(step.escalate) : null,
       ),
       el('p', { class: 'source' }, step.source),
     ),
@@ -219,20 +221,25 @@ function renderBreathing(step) {
   );
 }
 
+/* In-place log button: logs once, then shows a done state with the time. */
+function logDoneButton(conf) {
+  const btn = el('button', { class: 'btn btn-secondary', type: 'button' }, conf.label);
+  btn.addEventListener('click', async () => {
+    if (btn.classList.contains('is-done')) return;
+    await logEvent(conf.logs, conf.detail || null);
+    const t = new Date().toLocaleTimeString('de-DE', { hour12: false });
+    btn.classList.add('is-done');
+    btn.disabled = true;
+    btn.textContent = `${conf.label} ✓ ${t}`;
+  });
+  return btn;
+}
+
 function renderAlarm(step) {
   clearWarning();
   const confirmRow = el('div', { class: 'confirm-row' });
   for (const conf of step.confirmations) {
-    const btn = el('button', { class: 'btn btn-secondary', type: 'button' }, conf.label);
-    btn.addEventListener('click', async () => {
-      if (btn.classList.contains('is-done')) return;
-      await logEvent(conf.logs);
-      const t = new Date().toLocaleTimeString('de-DE', { hour12: false });
-      btn.classList.add('is-done');
-      btn.disabled = true;
-      btn.textContent = `${conf.label} ✓ ${t}`;
-    });
-    confirmRow.appendChild(btn);
+    confirmRow.appendChild(logDoneButton(conf));
   }
 
   screenEl().replaceChildren(
@@ -337,20 +344,21 @@ async function signsOfLife() {
   await goToStep(o.next);
 }
 
-/* Permanent red escalation present on every recovery/monitor screen (US-10/S1):
- * breathing stopped → straight into CPR, no re-assessment, same journal. */
-function escalateButton() {
-  return el('button', { class: 'btn btn-xl btn-danger', type: 'button', onclick: escalateToCpr },
-    'Atmet nicht mehr');
+/* Permanent red escalation present on every recovery/monitor screen (US-10/S1).
+ * Default (F1): breathing stopped → straight into CPR, no re-assessment. F2
+ * steps override via step.escalate (consciousness lost → schema II). */
+function escalateButton(esc = ESCALATE_TO_CPR) {
+  return el('button', { class: 'btn btn-xl btn-danger', type: 'button', onclick: () => escalateTo(esc) },
+    esc.label);
 }
 
-async function escalateToCpr() {
+async function escalateTo(esc) {
   teardownTransient();
-  await logEvent('NO_NORMAL_BREATHING');
-  await goToStep('cpr'); // announce=true → auto startCpr, no reassessment
+  await logEvent(esc.logs);
+  await goToStep(esc.next); // announce=true → e.g. 'cpr' auto-starts pacing
 }
 
-/* One recovery-position step: confirm or skip (US-8). */
+/* One measure step: confirm / alt / skip, optional extra log buttons (US-8, F2). */
 function renderRecoveryStep(step, announce) {
   clearWarning();
   if (announce && step.enterCue) audio.speak(step.enterCue);
@@ -371,6 +379,13 @@ function renderRecoveryStep(step, announce) {
       step.confirm.label);
   }
 
+  // Optional alternative outcome (e.g. F2 shock position: contraindication).
+  const alt = step.alt
+    ? el('button', { class: 'btn btn-secondary', type: 'button',
+        onclick: async () => { await logEvent(step.alt.logs); await goToStep(step.alt.next); } },
+        step.alt.label)
+    : null;
+
   const skip = el('button', { class: 'btn btn-secondary', type: 'button',
     onclick: async () => { await logEvent('STEP_SKIPPED', step.skip.detail); await goToStep(step.skip.next); } },
     'Übersprungen');
@@ -379,7 +394,16 @@ function renderRecoveryStep(step, announce) {
   const body = el('div', { class: 'step-body' },
     el('h1', { class: 'step-title' }, step.title),
     el('p', { class: 'step-hint' }, step.hint),
+    step.dangerHint ? el('p', { class: 'step-hint danger' }, step.dangerHint) : null,
   );
+
+  // Optional in-place log buttons (e.g. tourniquet time, US-04/S2): the tap
+  // timestamp itself documents the moment in the journal.
+  if (step.extras) {
+    const row = el('div', { class: 'confirm-row' });
+    for (const conf of step.extras) row.appendChild(logDoneButton(conf));
+    body.appendChild(row);
+  }
   if (step.info) {
     const panel = el('div', { class: 'info-panel', id: 'info-panel', hidden: 'hidden' },
       el('p', { class: 'info-title' }, step.info.title),
@@ -402,8 +426,9 @@ function renderRecoveryStep(step, announce) {
       body,
       el('div', { class: 'actions' },
         primary,
+        alt,
         skip,
-        escalateButton(),
+        escalateButton(step.escalate),
         confirmButton('Einsatz beenden', 'Beenden bestätigen', endIncident, 'btn btn-ghost'),
       ),
       el('p', { class: 'source' }, step.source),
@@ -411,7 +436,10 @@ function renderRecoveryStep(step, announce) {
   );
 }
 
-/* Recurring 3-min monitoring loop (US-9). */
+/* Recurring monitoring loop, fully data-driven (US-9 / F2 US-12): the step
+ * declares reminder timing, cue, and its due actions. A due action without
+ * `next` resets the countdown; with `next` it navigates (e.g. re-run the
+ * schema, or escalate into the breathing check). */
 function renderMonitor(step, announce) {
   clearWarning();
   if (announce) audio.speak(step.reminderCue);
@@ -425,6 +453,16 @@ function renderMonitor(step, announce) {
   const body = el('div', { class: 'step-body' });
   const actions = el('div', { class: 'actions' });
 
+  const styleClass = (s) => (s === 'primary' ? 'btn-primary' : s === 'danger' ? 'btn-danger' : 'btn-secondary');
+
+  async function runDueAction(a) {
+    if (monitorReprompt) { clearInterval(monitorReprompt); monitorReprompt = null; }
+    if (a.logs) await logEvent(a.logs, a.detail || null);
+    if (a.next) { await goToStep(a.next); return; }
+    due = false; repromptCount = 0; remaining = total;
+    paintCountdown();
+  }
+
   function paintCountdown() {
     body.replaceChildren(
       el('h1', { class: 'step-title' }, step.title),
@@ -432,33 +470,28 @@ function renderMonitor(step, announce) {
       el('div', { class: 'metric metric-inline' },
         el('span', { class: 'metric-label' }, 'Nächste Kontrolle in'), countdown),
     );
-    actions.replaceChildren(escalateButton(),
-      confirmButton('Einsatz beenden', 'Beenden bestätigen', endIncident, 'btn btn-ghost'));
+    actions.replaceChildren(...[
+      // F2: the schema re-run may be taken early, before the reminder fires.
+      step.allowEarly
+        ? el('button', { class: 'btn btn-secondary', type: 'button',
+            onclick: () => runDueAction(step.dueActions[0]) }, step.dueActions[0].label)
+        : null,
+      escalateButton(step.escalate),
+      confirmButton('Einsatz beenden', 'Beenden bestätigen', endIncident, 'btn btn-ghost'),
+    ].filter(Boolean));
   }
 
   function paintQuestion() {
-    body.replaceChildren(
+    body.replaceChildren(...[
       el('h1', { class: 'step-title' }, step.question),
-      el('p', { class: 'step-hint danger' }, 'Schnappatmung zählt als keine normale Atmung.'),
-    );
+      step.dueHint ? el('p', { class: 'step-hint danger' }, step.dueHint) : null,
+    ].filter(Boolean));
     actions.replaceChildren(
-      el('button', { class: 'btn btn-xl btn-primary', type: 'button', onclick: onUnchanged }, 'Unverändert'),
-      el('button', { class: 'btn btn-xl btn-danger', type: 'button', onclick: onWorsened }, 'Verschlechtert'),
-      escalateButton(),
+      ...step.dueActions.map((a) => el('button', {
+        class: 'btn btn-xl ' + styleClass(a.style), type: 'button', onclick: () => runDueAction(a),
+      }, a.label)),
+      escalateButton(step.escalate),
     );
-  }
-
-  async function onUnchanged() {
-    await logEvent('VITALS_CHECKED', 'unverändert');
-    due = false; repromptCount = 0; remaining = total;
-    if (monitorReprompt) { clearInterval(monitorReprompt); monitorReprompt = null; }
-    paintCountdown();
-  }
-
-  async function onWorsened() {
-    if (monitorReprompt) { clearInterval(monitorReprompt); monitorReprompt = null; }
-    await logEvent('VITALS_WORSENED');
-    await goToStep('breathing'); // US-10/S2 — re-run the timed check, then branch
   }
 
   function fireReminder() {

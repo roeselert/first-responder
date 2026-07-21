@@ -4,9 +4,10 @@ Offline-first PWA that guides a **trained first responder** through emergency
 treatment schemas. See [`CLAUDE.md`](./CLAUDE.md) for the architecture spine,
 vision, quality goals and context.
 
-> **Status: F1 implemented (Phase 3).** The full "unconscious patient →
+> **Status: F1 + F2 implemented (Phase 3).** The full "unconscious patient →
 > assessment → CPR" flow works offline: guided assessment, audio-paced 30:2 CPR,
-> a timestamped journal and share. UI and cues are in German.
+> a timestamped journal and share. A second schema guides the treatment of a
+> **responsive** patient (DLRG San A, S. 82). UI and cues are in German.
 
 ## What's in this iteration
 
@@ -35,6 +36,20 @@ ES modules (`js/cpr.js`, `js/store.js`, `js/audio.js`, `js/journal.js`,
 `js/wakelock.js`). Spoken cues use `speechSynthesis` and fall back to distinct
 synthesized tones when no offline German voice is available (no runtime network,
 Q1/Q6).
+
+### F2 — responsive patient (DLRG San A, Schema S. 82)
+
+The assessment branches at **"Anschauen – Ansprechen – Anfassen"**: "Reagiert
+nicht" (primary) continues into F1, a secondary **"Reagiert"** enters the
+responsive-patient schema. Its left-hand questions are worked through in
+sequence — patient endangered, life-threatening bleeding (with tourniquet
+time logging), cervical-spine suspicion, airway obstruction, oxygen indication,
+blood pressure/pulse, shock signs (with visible contraindications), restricted
+movement (axial handling), acute abdomen — and every "Ja" opens the matching
+measure step with an on-demand how-to. The loop ends in a care/monitoring
+screen that re-runs the whole schema every 3 minutes; a permanent **"Reagiert
+nicht mehr"** action switches to schema II (call for help → breathing check →
+CPR or recovery position). All findings and measures land in the same journal.
 
 ## Run locally
 
