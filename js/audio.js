@@ -31,6 +31,7 @@ const TONE_VOCAB = {
   CHECK_VITALS:[{ freq: 500, dur: 0.22 }, { freq: 500, dur: 0.22 }],
   KEEP_WARM:   [{ freq: 590, dur: 0.18 }],
   RECOVERY:    [{ freq: 700, dur: 0.14 }, { freq: 590, dur: 0.20 }],
+  REPEAT_SCHEMA:[{ freq: 500, dur: 0.22 }, { freq: 500, dur: 0.22 }, { freq: 640, dur: 0.22 }],
   END_TONE:    [{ freq: 990, dur: 0.30 }],
 };
 
@@ -44,6 +45,7 @@ const VIBRATE_VOCAB = {
   CHECK_VITALS:[250, 120, 250],
   KEEP_WARM:   [200],
   RECOVERY:    [150, 100, 150],
+  REPEAT_SCHEMA:[250, 120, 250, 120, 250],
   CLICK:       [20],
 };
 
