@@ -191,6 +191,21 @@ body {
 /* Confirmed "already placed" primary in the recovery call step (US-8/S3) */
 .actions .btn.is-done { background: #e7f4ea; border-color: #bfe2c8; color: #1f6b34; }
 
+/* On-demand how-to on the recovery-position step */
+.btn-info { font-size: 0.98rem; font-weight: 600; }
+.info-panel {
+  width: 100%;
+  text-align: left;
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+.info-panel[hidden] { display: none; }
+.info-title { margin: 0 0 8px; font-weight: 700; font-size: 0.95rem; }
+.info-panel .recovery-list { font-size: 0.98rem; }
+
 /* ---- Journal preview / share ---- */
 .journal-preview {
   white-space: pre-wrap; word-break: break-word;
