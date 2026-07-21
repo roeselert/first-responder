@@ -390,13 +390,12 @@ function renderRecoveryStep(step, announce) {
     onclick: async () => { await logEvent('STEP_SKIPPED', step.skip.detail); await goToStep(step.skip.next); } },
     'Übersprungen');
 
-  // Optional on-demand how-to (US: further info on the recovery position).
+  // Optional on-demand how-tos (one toggle button + panel per entry).
   const body = el('div', { class: 'step-body' },
     el('h1', { class: 'step-title' }, step.title),
     el('p', { class: 'step-hint' }, step.hint),
     step.dangerHint ? el('p', { class: 'step-hint danger' }, step.dangerHint) : null,
   );
-
   // Optional in-place log buttons (e.g. tourniquet time, US-04/S2): the tap
   // timestamp itself documents the moment in the journal.
   if (step.extras) {
@@ -404,23 +403,25 @@ function renderRecoveryStep(step, announce) {
     for (const conf of step.extras) row.appendChild(logDoneButton(conf));
     body.appendChild(row);
   }
-  if (step.info) {
-    const panel = el('div', { class: 'info-panel', id: 'info-panel', hidden: 'hidden' },
-      el('p', { class: 'info-title' }, step.info.title),
-      el('ol', { class: 'recovery-list' }, ...step.info.steps.map((s) => el('li', {}, s))),
+
+  const infos = step.infos || (step.info ? [step.info] : []);
+  infos.forEach((info, i) => {
+    const panelId = `info-panel-${i}`;
+    const panel = el('div', { class: 'info-panel', id: panelId, hidden: 'hidden' },
+      el('p', { class: 'info-title' }, info.title),
+      el('ol', { class: 'recovery-list' }, ...info.steps.map((s) => el('li', {}, s))),
     );
     const infoBtn = el('button', {
       class: 'btn btn-secondary btn-info', type: 'button',
-      'aria-expanded': 'false', 'aria-controls': 'info-panel',
+      'aria-expanded': 'false', 'aria-controls': panelId,
       onclick: () => {
         const open = panel.hidden;
         panel.hidden = !open;
         infoBtn.setAttribute('aria-expanded', String(open));
       },
-    }, step.info.label);
+    }, info.label);
     body.append(infoBtn, panel);
-  }
-
+  });
   screenEl().replaceChildren(
     el('section', { class: 'screen screen-step' },
       body,
