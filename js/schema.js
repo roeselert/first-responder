@@ -162,6 +162,21 @@ export const STEPS = Object.freeze({
     enterCue: 'RECOVERY',
     confirm: { label: 'Seitenlage hergestellt', logs: 'RECOVERY_POSITION', next: 'recovery_call' },
     skip: { detail: 'Seitenlage', next: 'recovery_call' },
+    // On-demand how-to (kept as reviewable data, Q3). Wording pending San A review.
+    info: {
+      label: 'Wie geht die stabile Seitenlage?',
+      title: 'Stabile Seitenlage – Schritt für Schritt',
+      steps: [
+        'Neben dem Patienten knien, beide Beine des Patienten gestreckt.',
+        'Nahen Arm rechtwinklig nach oben abwinkeln, Handfläche nach oben.',
+        'Fernen Arm über die Brust führen, Handrücken an die nahe Wange legen.',
+        'Fernes Bein am Knie anwinkeln, Fuß auf dem Boden aufstellen.',
+        'Am fernen Knie fassen und den Patienten zu sich auf die Seite drehen.',
+        'Oberes Bein so ausrichten, dass Hüfte und Knie im rechten Winkel liegen.',
+        'Kopf überstrecken, Mund leicht nach unten – Atemwege bleiben frei.',
+        'Atmung fortlaufend kontrollieren.',
+      ],
+    },
     source: 'San A 2021 – Auffinden eines Notfallpatienten II',
   },
 
